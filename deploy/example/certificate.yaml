@@ -1,0 +1,16 @@
+# EXAMPLE Certificate requesting an apex + wildcard cert via the DNSExit solver.
+# Both names validate through the same _acme-challenge.example.com TXT record,
+# so the webhook must add both challenge values without overwriting (handled).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: example-wildcard
+  namespace: infra
+spec:
+  secretName: example-wildcard-tls
+  issuerRef:
+    name: letsencrypt-dnsexit
+    kind: ClusterIssuer
+  dnsNames:
+    - example.com
+    - "*.example.com"

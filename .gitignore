@@ -1,0 +1,23 @@
+# Compiled binary
+/dnsexit-webhook
+dnsexit-webhook
+
+# Local apiserver test artifacts (contains generated keys/certs)
+apiserver.local.config/
+*.local.config/
+
+# Secrets — never commit real credentials
+*secret*.yaml
+!deploy/example/*secret*.yaml
+*.pem
+*.key
+*.crt
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Backups
+*.old

@@ -1,0 +1,70 @@
+# RBAC for the DNSExit cert-manager webhook.
+# All namespaced objects assume cert-manager runs in the "infra" namespace.
+# Adjust every `namespace:` below to match your cert-manager installation.
+---
+# Lets the webhook's extension-apiserver validate incoming request auth headers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dnsexit-webhook-authentication-reader
+  namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: extension-apiserver-authentication-reader
+subjects:
+  - kind: ServiceAccount
+    name: dnsexit-webhook
+    namespace: infra
+---
+# Allows the webhook to read the Secret that holds the DNSExit API key.
+# cert-manager calls the webhook with ResourceNamespace set to its own
+# cluster-resource namespace (for ClusterIssuers), so the Secret must live there.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: dnsexit-webhook-secret-reader
+  namespace: infra
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dnsexit-webhook-secret-reader
+  namespace: infra
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: dnsexit-webhook-secret-reader
+subjects:
+  - kind: ServiceAccount
+    name: dnsexit-webhook
+    namespace: infra
+---
+# Allows the cert-manager controller to invoke this webhook's aggregated API
+# (the DNS01 solver). The group must match GROUP_NAME / the APIService group.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dnsexit-webhook-domain-solver
+rules:
+  - apiGroups: ["dnsexit.acme.internal"]
+    resources: ["*"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: dnsexit-webhook-domain-solver
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: dnsexit-webhook-domain-solver
+subjects:
+  # The ServiceAccount used by the cert-manager controller Deployment.
+  - kind: ServiceAccount
+    name: cert-manager
+    namespace: infra

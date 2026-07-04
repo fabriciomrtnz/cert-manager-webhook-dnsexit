@@ -1,0 +1,26 @@
+# Serving certificate for the webhook's HTTPS endpoint.
+# cert-manager injects this CA into the APIService via the
+# cert-manager.io/inject-ca-from annotation (see apiservice.yaml).
+# Adjust the namespace to match your cert-manager installation.
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: dnsexit-webhook-selfsigned
+  namespace: infra
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: dnsexit-webhook-tls
+  namespace: infra
+spec:
+  secretName: dnsexit-webhook-tls
+  dnsNames:
+    - dnsexit-webhook.infra.svc
+    - dnsexit-webhook.infra.svc.cluster.local
+  issuerRef:
+    name: dnsexit-webhook-selfsigned
+    kind: Issuer

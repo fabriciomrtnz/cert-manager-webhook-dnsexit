@@ -1,0 +1,17 @@
+apiVersion: apiregistration.k8s.io/v1
+kind: APIService
+metadata:
+  name: v1alpha1.dnsexit.acme.internal
+  annotations:
+    # Important: Let cert-manager inject the CA bundle here
+    cert-manager.io/inject-ca-from: infra/dnsexit-webhook-tls
+spec:
+  group: dnsexit.acme.internal
+  groupPriorityMinimum: 1000
+  versionPriority: 15
+  version: v1alpha1
+#  insecureSkipTLSVerify: true  # Or use caBundle if you have strictly configured TLS
+  service:
+    name: dnsexit-webhook      # Must match your webhook Service name
+    namespace: infra           # Must match your webhook Service namespace
+

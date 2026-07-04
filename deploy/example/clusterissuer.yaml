@@ -1,0 +1,22 @@
+# EXAMPLE ClusterIssuer using Let's Encrypt with the DNSExit DNS-01 solver.
+# Works with any ACME CA — swap `server` (and add externalAccountBinding for
+# CAs that require EAB, e.g. ZeroSSL/Buypass).
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-dnsexit
+spec:
+  acme:
+    email: you@example.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-dnsexit-account-key
+    solvers:
+      - dns01:
+          webhook:
+            groupName: dnsexit.acme.internal
+            solverName: dnsexit
+            config:
+              apiKeySecretRef:
+                name: dnsexit-credentials
+                key: apiKey

@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dnsexit-webhook
+  namespace: infra
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dnsexit-webhook
+  template:
+    metadata:
+      labels:
+        app: dnsexit-webhook
+    spec:
+      serviceAccountName: dnsexit-webhook
+      containers:
+        - name: webhook
+          # Replace with your own image (e.g. ghcr.io/<your-username>/dnsexit-webhook:v0.1.0).
+          # Pin a version tag in production instead of :latest.
+          image: ghcr.io/yourusername/dnsexit-webhook:latest
+          imagePullPolicy: IfNotPresent
+          args:
+            - --tls-cert-file=/tls/tls.crt
+            - --tls-private-key-file=/tls/tls.key
+          env:
+            - name: GROUP_NAME
+              value: dnsexit.acme.internal
+          ports:
+            - name: https
+              containerPort: 443
+              protocol: TCP
+          volumeMounts:
+            - name: webhook-tls
+              mountPath: /tls
+              readOnly: true
+      volumes:
+        - name: webhook-tls
+          secret:
+            secretName: dnsexit-webhook-tls
