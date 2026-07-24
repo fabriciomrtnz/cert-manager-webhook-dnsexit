@@ -32,6 +32,17 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+// dnsexitTTLMinutes is the TTL sent with every TXT record.
+//
+// The DNSExit API's "ttl" field is expressed in MINUTES and is multiplied by 60
+// server-side. It must be >= 1; sending 0 is rejected with:
+//
+//	{"code":3,"message":"Missing Required Parameters - ttl must be >= 1 ..."}
+//
+// 1 minute (60s) is the shortest value DNSExit accepts and is what we want for
+// ACME, so that stale _acme-challenge records fall out of resolver caches fast.
+const dnsexitTTLMinutes = 1
+
 type DNSExitSolver struct {
 	kubeClient kubernetes.Interface
 }
@@ -85,7 +96,7 @@ func (s *DNSExitSolver) CleanUp(ch *acmev1alpha1.ChallengeRequest) error {
 	}
 
 	recordName, zone := computeRecordNameAndZone(ch.ResolvedFQDN, ch.ResolvedZone)
-	return deleteTXT(apiKey, zone, recordName)
+	return deleteTXT(apiKey, zone, recordName, ch.Key)
 }
 
 func loadConfig(ch *acmev1alpha1.ChallengeRequest) (*Config, error) {
@@ -143,7 +154,8 @@ func createTXT(apiKey, zone, name, value string) error {
 			"type":    "TXT",
 			"name":    name,
 			"content": value,
-			"ttl":     0,
+			// TTL in minutes, must be >= 1. See dnsexitTTLMinutes.
+			"ttl": dnsexitTTLMinutes,
 			// overwrite MUST be false: apex + wildcard certs place two different
 			// TXT values at the same _acme-challenge name and both must coexist
 			// for ACME validation. overwrite:true clobbers the first value.
@@ -154,7 +166,7 @@ func createTXT(apiKey, zone, name, value string) error {
 	return dnsexitPost(apiKey, payload, "create")
 }
 
-func deleteTXT(apiKey, zone, name string) error {
+func deleteTXT(apiKey, zone, name, value string) error {
 	if zone == "" {
 		return fmt.Errorf("empty zone derived from resolved values (zone=%q name=%q)", zone, name)
 	}
@@ -164,6 +176,11 @@ func deleteTXT(apiKey, zone, name string) error {
 		"delete": map[string]interface{}{
 			"type": "TXT",
 			"name": name,
+			// content MUST be set. createTXT uses overwrite:false, so an
+			// apex + wildcard certificate leaves two TXT values on the same
+			// _acme-challenge name. Deleting by name alone removes both and
+			// breaks the challenge that is still pending validation.
+			"content": value,
 		},
 	}
 
@@ -217,4 +234,3 @@ func dnsexitPost(apiKey string, payload map[string]interface{}, action string) e
 
 	return nil
 }
-

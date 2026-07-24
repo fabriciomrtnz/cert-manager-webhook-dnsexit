@@ -1,0 +1,23 @@
+# Local apiserver test artifacts — contain a generated PRIVATE KEY.
+# Never let these into the build context.
+apiserver.local.config/
+*.local.config/
+*.pem
+*.key
+*.crt
+
+.git/
+.gitignore
+deploy/
+README.md
+LICENSE
+
+# Compiled binary (rebuilt inside the image)
+dnsexit-webhook
+
+# OS / editor
+.DS_Store
+**/.DS_Store
+*.swp
+.idea/
+.vscode/

@@ -25,6 +25,19 @@ challenge. The webhook reads your DNSExit API key from a Kubernetes Secret and
 creates or deletes the challenge TXT record via the DNSExit API. The zone and
 record name are derived from the resolved challenge FQDN and zone.
 
+## DNSExit API quirks
+
+The [DNSExit DNS API](https://dnsexit.com/dns/dns-api/) has a few behaviours that
+are easy to get wrong. They are handled by this webhook, and documented here
+because they cost real debugging time.
+
+| Behaviour | Detail |
+| --- | --- |
+| `ttl` is in **minutes**, not seconds | The value is multiplied by 60 server-side and must be `>= 1`. Sending `0` returns `code=3 Missing Required Parameters`. This webhook sends `1` (60s), the shortest allowed — good for ACME, since stale challenge records expire quickly. |
+| HTTP 200 does **not** mean success | Logical failures still return `200 OK`. The JSON `code` field is authoritative: `0` = success, anything else = error. |
+| `add` needs `overwrite: false` | An apex + wildcard certificate places two different TXT values on the same `_acme-challenge` name. `overwrite: true` clobbers the first one and the apex challenge fails. |
+| `delete` needs `content` | Deleting by `name` alone removes **every** TXT at that name — including the sibling challenge value that is still pending validation. Always scope the delete with the record's `content`. |
+
 ## Prerequisites
 
 - A Kubernetes cluster with [cert-manager](https://cert-manager.io/docs/installation/)
@@ -137,6 +150,18 @@ kubectl get challenges -A
 kubectl logs -l app=dnsexit-webhook -n infra
 ```
 
+- **`code=3 Missing Required Parameters - ttl must be >= 1`** — fixed in v0.1.1.
+  The DNSExit `ttl` field is in **minutes** and rejects `0`. Older builds sent
+  `"ttl": 0`, so every `Present` failed, cert-manager retried forever and no
+  certificate was ever issued. Symptom in the logs:
+
+  ```text
+  [DNSEXIT] Sending create payload: {"add":{...,"ttl":0,"type":"TXT"},"domain":"example.com"}
+  [DNSEXIT] Response status: 200, body:
+  {"code":3,"message":"Missing Required Parameters - ttl must be >= 1 (ttl is in minutes; the value is multiplied by 60 internally)"}
+  ```
+
+  Upgrade the image and restart: `kubectl -n infra rollout restart deploy/dnsexit-webhook`.
 - **`code=2 API Key Authentication Error`** — wrong or missing API key in the
   `dnsexit-credentials` Secret.
 - **Secret read errors** — the webhook ServiceAccount can't read the Secret;
