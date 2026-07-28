@@ -30,6 +30,5 @@ func main() {
 		GroupName = g
 	}
 
-	//cmd.Run(GroupName, &solver.DNSExitSolver{})
 	cmd.RunWebhookServer(GroupName, &solver.DNSExitSolver{})
 }
